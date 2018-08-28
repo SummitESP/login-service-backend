@@ -2,7 +2,7 @@
 
 import login_backend
 
-long_description = open('README').read()
+long_description = open('README.md').read()
 
 setup_args = dict(
     name='login-service-backend',
