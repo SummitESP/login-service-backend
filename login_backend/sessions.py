@@ -3,7 +3,13 @@ from __future__ import unicode_literals
 
 import requests
 from django.conf import settings
-from django.contrib.sessions.backends.base import CreateError, SessionBase, UpdateError
+from django.contrib.sessions.backends.base import CreateError, SessionBase
+
+try:
+    from django.contrib.sessions.backends.base import UpdateError
+except ImportError:
+    class UpdateError(Exception):
+        pass
 
 
 class SessionStore(SessionBase):

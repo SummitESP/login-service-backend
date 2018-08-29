@@ -1,14 +1,11 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+import django
 from django.contrib.auth.models import Group
 
 
 class LoginUser(object):
-    is_authenticated = True
-    is_anonymous = False
-    is_active = True
-
     def __init__(self, user_data):
         self.groups = Group.objects.filter(name__in=user_data.pop('groups', []))
         for key, value in user_data.items():
@@ -41,4 +38,16 @@ class LoginUser(object):
         for perm in self.get_all_permissions():
             if perm[:perm.index('.')] == app_label:
                 return True
+        return False
+
+    @property
+    def is_authenticated(self):
+        if django.VERSION < (1, 10):
+            return lambda: True
+        return True
+
+    @property
+    def is_anonymous(self):
+        if django.VERSION < (1, 10):
+            return lambda: False
         return False

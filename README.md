@@ -11,6 +11,7 @@ pip install ...
 
 ### Django Settings
 
+    SESSION_ENGINE = 'login_backend.sessions'
     LOGIN_SERVICE_USER_CLASS = 'login_backend.user.LoginUser'
     LOGIN_SERVICE_SESSION_ENDPOINT = 'https://login.example.com/api/v1/session/'
 

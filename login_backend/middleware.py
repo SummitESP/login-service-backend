@@ -2,9 +2,13 @@
 from __future__ import unicode_literals
 
 from django.conf import settings
-from django.utils.deprecation import MiddlewareMixin
 from django.utils.functional import SimpleLazyObject
 from django.utils.module_loading import import_string
+
+try:
+    from django.utils.deprecation import MiddlewareMixin
+except ImportError:
+    MiddlewareMixin = object
 
 
 class LoginServiceAuthenticationMiddleware(MiddlewareMixin):
