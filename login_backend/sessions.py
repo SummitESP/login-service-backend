@@ -64,8 +64,17 @@ class SessionStore(SessionBase):
         else:
             return settings.LOGIN_SERVICE_SESSION_ENDPOINT
 
-    def _request(self, method, url, data=None):
-        resp = method(url, data=data)
+    def get_headers(self, headers):
+        if not headers or not isinstance(headers, dict):
+            headers = dict()
+        token = getattr(settings, 'LOGIN_SERVICE_TOKEN', None)
+        if token:
+            headers['Authorization'] = 'Token {}'.format(token)
+        return headers
+
+    def _request(self, method, url, data=None, headers=None):
+        headers = self.get_headers(headers)
+        resp = method(url, data=data, headers=headers)
         try:
             resp.raise_for_status()
         except requests.HTTPError:
