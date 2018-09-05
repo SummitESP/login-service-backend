@@ -3,7 +3,8 @@ from __future__ import unicode_literals
 
 from django.conf import settings
 from django.utils.functional import SimpleLazyObject
-from django.utils.module_loading import import_string
+
+from .utils import get_login_user
 
 try:
     from django.utils.deprecation import MiddlewareMixin
@@ -19,12 +20,4 @@ class LoginServiceAuthenticationMiddleware(MiddlewareMixin):
             "'django.contrib.sessions.middleware.SessionMiddleware' before "
             "'%s'."
         ) % ("_CLASSES" if settings.MIDDLEWARE is None else '', type(self))
-        request.user = SimpleLazyObject(lambda: self.get_user(request))
-
-    def get_user(self, request):
-        user_data = request.session.get('_user')
-        if user_data:
-            user = import_string(settings.LOGIN_SERVICE_USER_CLASS)(user_data)
-            return user
-        from django.contrib.auth.models import AnonymousUser
-        return AnonymousUser()
+        request.user = SimpleLazyObject(lambda: get_login_user(request.session.get('_user')))

@@ -7,7 +7,7 @@ This session and authentication backend is intended specifically for use with th
 Usage
 =====
 
-pip install ...
+pip install -e git+https://github.com/SummitESP/login-service-backend
 
 ### Django Settings
 
@@ -22,6 +22,16 @@ setting and replace it with `login_backend.middleware.LoginServiceAuthentication
 NOTE: This modified middleware will ignore the AUTHENTICATION_BACKENDS setting and assumes it
 is the only authentication backend.
 
+#### Django Rest Framework
+
+The login service can also handle Token authentication for Django Rest Framework. Be sure to add
+the following setting.
+
+    LOGIN_SERVICE_TOKEN_ENDPOINT = 'https://login.example.com/api/v1/session/'
+
+And add `login_backend.rest_framework.authentication.LoginServiceTokenAuthentication` to the
+`REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES']` setting of the authentication_classes attribute
+of the specific view you intend on using it with.
 
 ### Extending
 
