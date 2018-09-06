@@ -75,10 +75,12 @@ class SessionStore(SessionBase):
     def _request(self, method, url, data=None, headers=None):
         headers = self.get_headers(headers)
         resp = method(url, data=data, headers=headers)
+        session_data = None
         try:
             resp.raise_for_status()
         except requests.HTTPError:
-            session_data = None
+            pass
         else:
-            session_data = resp.json()
+            if resp.content:
+                session_data = resp.json()
         return session_data
