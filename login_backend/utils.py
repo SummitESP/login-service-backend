@@ -13,6 +13,8 @@ except ImportError:
 
 def get_login_user(user_data):
     if user_data:
-        user = import_string(settings.LOGIN_SERVICE_USER_CLASS)(user_data)
+        UserClass = import_string(getattr(
+            settings, 'LOGIN_SERVICE_USER_CLASS', 'login_backend.user.LoginUser'))
+        user = UserClass(user_data)
         return user
     return AnonymousUser()
