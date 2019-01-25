@@ -42,7 +42,7 @@ should have the following permissions:
 The login service can also handle Token authentication for Django Rest Framework. Be sure to add
 the following setting.
 
-    LOGIN_SERVICE_TOKEN_ENDPOINT = 'https://login.example.com/api/v1/session/'
+    LOGIN_SERVICE_TOKEN_ENDPOINT = 'https://login.example.com/api/v1/token/'
 
 And add `login_backend.rest_framework.authentication.LoginServiceTokenAuthentication` to the
 `REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES']` setting of the authentication_classes attribute
