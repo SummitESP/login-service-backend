@@ -51,3 +51,17 @@ class LoginUser(object):
         if django.VERSION < (1, 10):
             return lambda: False
         return False
+
+    def get_username(self):
+        return getattr(self, 'username', '')
+
+    def get_full_name(self):
+        """
+        Return the first_name plus the last_name, with a space in between.
+        """
+        full_name = '%s %s' % (getattr(self, 'first_name', ''), getattr(self, 'last_name', ''))
+        return full_name.strip()
+
+    def get_short_name(self):
+        """Return the short name for the user."""
+        return getattr(self, 'first_name', '')
