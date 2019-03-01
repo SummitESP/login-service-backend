@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+from django import VERSION
 from django.conf import settings
 from django.contrib import auth
 from django.contrib.auth.middleware import RemoteUserMiddleware
@@ -35,6 +36,13 @@ class RemoteLoginServiceUserMiddleware(RemoteUserMiddleware):
 
     force_logout_if_no_session = True
 
+    def is_authenticated(self, request):
+        """Handle user is_auth propery"""
+        if VERSION >= (1, 10):
+            # Django 1.10 onwards `is_authenticated` is a property
+            return request.user.is_authenticated
+        return request.user.is_authenticated()
+
     def process_request(self, request):
         # AuthenticationMiddleware is required so that request.user exists.
         if not hasattr(request, 'user'):
@@ -60,13 +68,14 @@ class RemoteLoginServiceUserMiddleware(RemoteUserMiddleware):
             # If specified session doesn't exist then remove any existing
             # authenticated remote-user, or return (leaving request.user set to
             # AnonymousUser by the AuthenticationMiddleware).
-            if self.force_logout_if_no_session and request.user.is_authenticated:
+            if self.force_logout_if_no_session and self.is_authenticated(request):
                 self._remove_invalid_user(request)
             return
         # If the user is already authenticated and that user is the user we are
         # getting passed in the headers, then the correct user is already
         # persisted in the session and we don't need to continue.
-        if request.user.is_authenticated:
+
+        if self.is_authenticated(request):
             if request.user.get_username() == self.clean_username(h_number, request):
                 return
             else:
@@ -76,8 +85,10 @@ class RemoteLoginServiceUserMiddleware(RemoteUserMiddleware):
 
         # We are seeing this user for the first time in this session, attempt
         # to authenticate the user.
-        user = auth.authenticate(request, h_number=h_number)
+        user = auth.authenticate(request=request, h_number=h_number)
         if user:
             # User is valid.  Set request.user and persist user in the session
             # by logging the user in.
             request.user = user
+            # FIX: This is cycling session keys
+            auth.login(request, user)

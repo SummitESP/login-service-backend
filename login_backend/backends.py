@@ -1,3 +1,6 @@
+from copy import copy
+
+from django import VERSION
 from django.contrib.auth import get_user_model
 from django.contrib.auth.backends import ModelBackend
 from django.contrib.auth.models import Group
@@ -19,6 +22,8 @@ def sync_m2m_field(obj, attr_name, existing, incoming):
 
 class LoginServiceBackend(ModelBackend):
     """
+    Modeled after Django's RemoveUserBackend class which inherits from ModelBackend.
+
     This backend is to be used in conjunction with the ``RemoteLoginServiceUserMiddleware``
     found in the middleware module of this package, and is used when the server
     is handling authentication to the login service.
@@ -27,6 +32,13 @@ class LoginServiceBackend(ModelBackend):
     usernames that don't already exist in the database.  Subclasses can disable
     this behavior by setting the ``create_unknown_user`` attribute to
     ``False``.
+
+    If ``create_unknown_user`` is ``True`` new users have their field values synced with
+    the login service's values. You can control what fields are synced with the
+    ``configure_fields`` attribute.
+
+    Fields within ``sync_fields`` are always synced from the login service values
+    when a user is authenticated.
     """
 
     create_unknown_user = True
@@ -54,13 +66,11 @@ class LoginServiceBackend(ModelBackend):
         # Note that this could be accomplished in one try-except clause, but
         # instead we use get_or_create when creating unknown users since it has
         # built-in safeguards for multiple threads.
-        user_data = request.session['_user']
+        user_data = copy(request.session['_user'])
         if self.create_unknown_user:
-            # TODO: specify a different field constant to match with h_number?
-            user, created = UserModel._default_manager.get_or_create(**{
-                UserModel.USERNAME_FIELD: username
-            })
+            (user, created) = self.get_or_create_user(username, user_data)
             if created:
+                # TODO: can raise exception here to say a user already exists for this user.
                 user = self.configure_user(user, user_data=user_data)
         else:
             try:
@@ -76,7 +86,15 @@ class LoginServiceBackend(ModelBackend):
         # Always save the user before attempting auth due to changes that can happen
         # in configure_user and sync_user.
         user.save()
-        return user if self.user_can_authenticate(user) else None
+        if VERSION >= (1, 10):
+            # Django 1.10 onwards `user_can_authenticate` is available
+            return user if self.user_can_authenticate(user) else None
+        return user if getattr(user, 'is_active', False) else None
+
+    def get_or_create_user(self, username, user_data):
+        return UserModel._default_manager.get_or_create(**{
+            UserModel.USERNAME_FIELD: username
+        })
 
     def sync_user_fields(self, user, fields, data):
         # optionally sync groups if present
