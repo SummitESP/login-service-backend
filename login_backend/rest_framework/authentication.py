@@ -9,17 +9,23 @@ from rest_framework.exceptions import AuthenticationFailed
 
 from ..utils import get_login_user
 
+try:
+    # ugettext_lazy was deprecated in Django 2.2
+    from django.utils.translation import ugettext_lazy as _
+except ImportError:
+    from django.utils.translation import gettext_lazy as _
+
 
 class LoginServiceTokenAuthentication(TokenAuthentication):
     def authenticate_credentials(self, key):
         data = self._request(self.get_endpoint(key))
         if not data:
-            raise AuthenticationFailed('Invalid token.')
+            raise AuthenticationFailed(_('Invalid token.'))
 
         user = get_login_user(data.get('user'))
 
         if not user.is_active:
-            raise AuthenticationFailed('User inactive or deleted.')
+            raise AuthenticationFailed(_('User inactive or deleted.'))
 
         return (user, data)
 
