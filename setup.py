@@ -12,7 +12,7 @@ setup_args = dict(
     author='Jeremy Satterfield',
     author_email='jsatterfield@summitesp.com',
     license='MIT License',
-    packages=['login_backend'],
+    packages=['login_backend', 'login_backend.rest_framework'],
     install_requires=[
         'django>=1.6',
     ],
