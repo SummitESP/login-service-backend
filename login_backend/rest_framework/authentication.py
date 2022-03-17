@@ -3,11 +3,17 @@ from __future__ import unicode_literals
 
 import requests
 from django.conf import settings
-from django.utils.translation import ugettext_lazy as _
+
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 
 from ..utils import get_login_user
+
+try:
+    # ugettext_lazy was deprecated in Django 2.2
+    from django.utils.translation import ugettext_lazy as _
+except ImportError:
+    from django.utils.translation import gettext_lazy as _
 
 
 class LoginServiceTokenAuthentication(TokenAuthentication):
