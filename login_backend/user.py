@@ -52,6 +52,10 @@ class LoginUser(object):
             return lambda: False
         return False
 
+    @property
+    def is_staff(self):
+        return getattr(self, 'staff', False)
+
     def get_username(self):
         return getattr(self, 'username', '')
 
