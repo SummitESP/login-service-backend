@@ -2,7 +2,8 @@
 from __future__ import unicode_literals
 
 import django
-from django.contrib.auth.models import Group
+from django.utils import timezone
+from django.contrib.auth.models import User, Group
 
 
 class LoginUser(object):
@@ -65,3 +66,26 @@ class LoginUser(object):
     def get_short_name(self):
         """Return the short name for the user."""
         return getattr(self, 'first_name', '')
+
+
+class SyncingLoginUser(LoginUser):
+    def __init__(self, user_data):
+        """
+        Creates/updates a corresponding local auth.User object during __init__
+        """
+        # Missing Groups needs to exist before calling super.__init__
+        for group_name in user_data.get('groups', []):
+            Group.objects.get_or_create(name=group_name)
+
+        super(SyncingLoginUser, self).__init__(user_data)
+        local_user, _ = User.objects.update_or_create(
+            username=self.username,
+            defaults={
+                "email": self.email,
+                "first_name": self.first_name,
+                "last_name": self.last_name,
+                "is_staff": self.is_staff,
+                "is_active": self.is_active,
+                "is_superuser": self.is_superuser,
+                "last_login": timezone.now()
+            })
