@@ -89,3 +89,6 @@ class SyncingLoginUser(LoginUser):
                 "is_superuser": self.is_superuser,
                 "last_login": timezone.now()
             })
+
+        # Sync the pk, so the request.user is using the correct PK.
+        self.pk = local_user.pk
