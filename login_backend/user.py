@@ -74,8 +74,9 @@ class SyncingLoginUser(LoginUser):
         Creates/updates a corresponding local auth.User object during __init__
         """
         # Missing Groups needs to exist before calling super.__init__
-        for group_name in user_data.get('groups', []):
-            Group.objects.get_or_create(name=group_name)
+        groups = []
+        for group_name in user_data.get("groups", []):
+            groups.append(Group.objects.get_or_create(name=group_name)[0])
 
         super(SyncingLoginUser, self).__init__(user_data)
         local_user, _ = User.objects.update_or_create(
@@ -87,5 +88,8 @@ class SyncingLoginUser(LoginUser):
                 "is_staff": self.is_staff,
                 "is_active": self.is_active,
                 "is_superuser": self.is_superuser,
-                "last_login": timezone.now()
-            })
+                "last_login": timezone.now(),
+            },
+        )
+
+        local_user.groups.set(groups)
