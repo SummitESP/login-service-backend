@@ -80,8 +80,9 @@ class SyncingLoginUser(LoginUser):
 
         super(SyncingLoginUser, self).__init__(user_data)
         local_user, _ = User.objects.update_or_create(
-            username=self.username,
+            id=self.pk,
             defaults={
+                "username": self.username,
                 "email": self.email,
                 "first_name": self.first_name,
                 "last_name": self.last_name,
