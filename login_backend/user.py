@@ -94,3 +94,7 @@ class SyncingLoginUser(LoginUser):
         )
 
         local_user.groups.set(groups)
+
+        # Sync the pk, so the request.user is using the correct PK.
+        self.pk = local_user.pk
+
