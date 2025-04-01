@@ -2,6 +2,7 @@
 from __future__ import unicode_literals
 
 import django
+from django.db.models import F
 from django.utils import timezone
 from django.contrib.auth.models import User, Group
 
@@ -14,11 +15,16 @@ class LoginUser(object):
 
     def get_group_permissions(self, obj=None):
         if not hasattr(self, '_group_permissions'):
+            groups_permissions = self.groups.annotate(
+                annotated_app_label=F("permissions__content_type__app_label"),
+                annotated_codename=F("permissions__codename"),
+            )
             self._group_permissions = set(
-                '{}.{}'.format(app, codename)
-                for group in self.groups
-                for app, codename in group.permissions.values_list(
-                    'content_type__app_label', 'codename')
+                "{}.{}".format(
+                    group_permission.annotated_app_label,
+                    group_permission.annotated_codename,
+                )
+                for group_permission in groups_permissions
             )
         return self._group_permissions
 
@@ -74,9 +80,21 @@ class SyncingLoginUser(LoginUser):
         Creates/updates a corresponding local auth.User object during __init__
         """
         # Missing Groups needs to exist before calling super.__init__
-        groups = []
-        for group_name in user_data.get("groups", []):
-            groups.append(Group.objects.get_or_create(name=group_name)[0])
+        
+        # Get the Groups that already exist.
+        group_names = user_data.get("groups", [])
+        existing_groups = Group.objects.filter(name__in=group_names)
+        # Create any Groups that do not exist.
+        new_groups = []
+        if existing_groups.count() != len(group_names):
+            new_group_names = list(
+                set(group_names) - set(group.name for group in existing_groups)
+            )
+            new_groups = Group.objects.bulk_create(
+                Group(name=name) for name in new_group_names
+            )
+        # Combine the groups that exist with the newly-created Groups.
+        groups = list(existing_groups) + new_groups
 
         super(SyncingLoginUser, self).__init__(user_data)
         local_user, _ = User.objects.update_or_create(
