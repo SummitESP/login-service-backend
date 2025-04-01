@@ -2,6 +2,7 @@
 from __future__ import unicode_literals
 
 import django
+from django.db.models import F
 from django.utils import timezone
 from django.contrib.auth.models import User, Group
 
@@ -14,11 +15,16 @@ class LoginUser(object):
 
     def get_group_permissions(self, obj=None):
         if not hasattr(self, '_group_permissions'):
+            groups_permissions = self.groups.annotate(
+                annotated_app_label=F("permissions__content_type__app_label"),
+                annotated_codename=F("permissions__codename"),
+            )
             self._group_permissions = set(
-                '{}.{}'.format(app, codename)
-                for group in self.groups
-                for app, codename in group.permissions.values_list(
-                    'content_type__app_label', 'codename')
+                "{}.{}".format(
+                    group_permission.annotated_app_label,
+                    group_permission.annotated_codename,
+                )
+                for group_permission in groups_permissions
             )
         return self._group_permissions
 
