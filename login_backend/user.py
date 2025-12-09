@@ -71,26 +71,22 @@ class LoginUser(object):
 class SyncingLoginUser(LoginUser):
     def __init__(self, user_data):
         """
-        Creates/updates a corresponding local auth.User object during __init__
+        Creates a corresponding local auth.User object only if it doesn't exist.
+        Does not create or update groups - use a separate sync process for that.
+        Use a separate sync process to update existing user data and groups.
         """
-        # Missing Groups needs to exist before calling super.__init__
-        groups = []
-        for group_name in user_data.get("groups", []):
-            groups.append(Group.objects.get_or_create(name=group_name)[0])
-
         super(SyncingLoginUser, self).__init__(user_data)
-        local_user, _ = User.objects.update_or_create(
-            id=self.pk,
-            defaults={
-                "username": self.username,
-                "email": self.email,
-                "first_name": self.first_name,
-                "last_name": self.last_name,
-                "is_staff": self.is_staff,
-                "is_active": self.is_active,
-                "is_superuser": self.is_superuser,
-                "last_login": timezone.now(),
-            },
-        )
 
-        local_user.groups.set(groups)
+        # Only create if user doesn't exist - no updates on every request
+        if not User.objects.filter(id=self.pk).exists():
+            User.objects.create(
+                id=self.pk,
+                username=self.username,
+                email=self.email,
+                first_name=self.first_name,
+                last_name=self.last_name,
+                is_staff=self.is_staff,
+                is_active=self.is_active,
+                is_superuser=self.is_superuser,
+            )
+        # Note: groups are not set here - will be synced by management command
