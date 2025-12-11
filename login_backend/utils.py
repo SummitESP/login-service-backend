@@ -10,6 +10,11 @@ except ImportError:
     # Django < 1.7
     from django.utils.module_loading import import_by_path as import_string
 
+# Cache configuration
+CACHE_KEY_PREFIX_SESSION = 'login_service_session'
+CACHE_KEY_PREFIX_TOKEN = 'login_service_token'
+DEFAULT_CACHE_TIMEOUT = 300
+
 
 def get_login_user(user_data):
     if user_data:
