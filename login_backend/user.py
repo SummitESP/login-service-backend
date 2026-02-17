@@ -1,9 +1,15 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+import logging
+
 import django
+from django.contrib.auth.models import Group, User
+from django.db import IntegrityError, transaction
 from django.utils import timezone
-from django.contrib.auth.models import User, Group
+
+
+logger = logging.getLogger(__name__)
 
 
 class LoginUser(object):
@@ -79,18 +85,37 @@ class SyncingLoginUser(LoginUser):
             groups.append(Group.objects.get_or_create(name=group_name)[0])
 
         super(SyncingLoginUser, self).__init__(user_data)
-        local_user, _ = User.objects.update_or_create(
-            id=self.pk,
-            defaults={
-                "username": self.username,
-                "email": self.email,
-                "first_name": self.first_name,
-                "last_name": self.last_name,
-                "is_staff": self.is_staff,
-                "is_active": self.is_active,
-                "is_superuser": self.is_superuser,
-                "last_login": timezone.now(),
-            },
-        )
+        defaults = {
+            "username": self.username,
+            "email": self.email,
+            "first_name": self.first_name,
+            "last_name": self.last_name,
+            "is_staff": self.is_staff,
+            "is_active": self.is_active,
+            "is_superuser": self.is_superuser,
+            "last_login": timezone.now(),
+        }
+
+        try:
+            with transaction.atomic():
+                local_user, _ = User.objects.update_or_create(
+                    id=self.pk,
+                    defaults=defaults,
+                )
+        except IntegrityError:
+            logger.warning(
+                "SyncingLoginUser id-based upsert failed; falling back to username-based upsert",
+                extra={"login_user_id": self.pk, "login_username": self.username},
+                exc_info=True,
+            )
+            with transaction.atomic():
+                local_user, _ = User.objects.update_or_create(
+                    username=self.username,
+                    defaults=defaults,
+                )
+            logger.warning(
+                "SyncingLoginUser fallback applied using username-based upsert",
+                extra={"login_user_id": self.pk, "login_username": self.username},
+            )
 
         local_user.groups.set(groups)
