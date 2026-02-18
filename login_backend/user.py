@@ -2,6 +2,7 @@
 from __future__ import unicode_literals
 
 import django
+from typing import Any
 from django.utils import timezone
 from django.contrib.auth.models import User, Group
 
@@ -60,6 +61,9 @@ class LoginUser(object):
     def get_username(self):
         return getattr(self, 'username', '')
 
+    def get_id(self):
+        return getattr(self, 'id', None)
+
     def get_full_name(self):
         """
         Return the first_name plus the last_name, with a space in between.
@@ -99,3 +103,51 @@ class SyncingLoginUser(LoginUser):
         )
 
         local_user.groups.set(groups)
+        
+        # cache the local user
+        self._django_user_cache = local_user
+
+    def _load_django_user(self) -> None:
+        """Load the synced Django user into cache."""
+        if self._django_user_cache is None and self.username:
+            try:
+                self._django_user_cache = User.objects.get(username=self.username)
+            except User.DoesNotExist:
+                logger.error(f"Django User not found for username: {self.username}")
+                self._django_user_cache = None
+
+    @property
+    def django_user(self) -> User:
+        """Return the synced Django auth.User if available."""
+        if self._django_user_cache is None:
+            self._load_django_user()
+        return self._django_user_cache
+
+    @property
+    def id(self) -> int | Any:
+        """
+        Return ONLY the ID of the synced Django user for admin compatibility.
+        Never returns the login service user ID.
+        """
+        django_user = self.django_user
+        if django_user:
+            return django_user.id
+        return None
+
+    @id.setter
+    def id(self, value: int) -> None:
+        """Prevent setting id - it's read-only from synced Django User."""
+        pass
+
+    @property
+    def pk(self) -> int | Any:
+        """
+        Alias for id to ensure Django admin compatibility.
+        Never returns the login service user ID.
+        """
+        return self.id
+
+    @pk.setter
+    def pk(self, value: int) -> None:
+        """Prevent setting pk - it's read-only from synced Django User."""
+        pass
