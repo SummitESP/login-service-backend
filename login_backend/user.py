@@ -11,13 +11,12 @@ logger = logging.getLogger("login_backend")
 
 class LoginUser(object):
     def __init__(self, user_data):
-        logging.debug(f"Instantiating user with: {user_data}")
         self.groups = Group.objects.filter(name__in=user_data.pop('groups', []))
         for key, value in user_data.items():
             setattr(self, key, value)
 
     def get_group_permissions(self, obj=None):
-        logging.debug(f"Getting group permissions: {obj}")
+        logger.debug(f"Getting group permissions: {obj}")
         if not hasattr(self, '_group_permissions'):
             self._group_permissions = set(
                 '{}.{}'.format(app, codename)
@@ -81,7 +80,6 @@ class SyncingLoginUser(LoginUser):
         """
         Creates/updates a corresponding local auth.User object during __init__
         """
-        logging.debug(f"Creating or updating user with data: {user_data}")
         # Missing Groups needs to exist before calling super.__init__
         groups = []
         for group_name in user_data.get("groups", []):

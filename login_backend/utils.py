@@ -15,13 +15,13 @@ except ImportError:
 
 
 def get_login_user(user_data):
-    logging.debug(f"Getting login user: {user_data}")
+    logger.debug(f"Getting login user: {user_data}")
     if user_data:
         UserClass = import_string(getattr(
             settings, 'LOGIN_SERVICE_USER_CLASS', 'login_backend.user.LoginUser'))
-        logging.debug(f"Instantiating user with class: {UserClass}")
+        logger.debug(f"Instantiating user with class: {UserClass}")
         user = UserClass(user_data)
-        logging.debug(f"Created user: {user}")
+        logger.debug(f"Created user: {user}")
         return user
-    logging.debug("No user data found, returning AnonymousUser.")
+    logger.debug("No user data found, returning AnonymousUser.")
     return AnonymousUser()
