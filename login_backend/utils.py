@@ -19,7 +19,6 @@ def get_login_user(user_data):
     if user_data:
         UserClass = import_string(getattr(
             settings, 'LOGIN_SERVICE_USER_CLASS', 'login_backend.user.LoginUser'))
-        logger.debug(f"Instantiating user with class: {UserClass}")
         user = UserClass(user_data)
         logger.debug(f"Created user: {user}")
         return user
