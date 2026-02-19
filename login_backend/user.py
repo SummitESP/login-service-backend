@@ -80,6 +80,8 @@ class SyncingLoginUser(LoginUser):
         """
         Creates/updates a corresponding local auth.User object during __init__
         """
+        self._django_user_cache = None
+
         # Missing Groups needs to exist before calling super.__init__
         groups = []
         for group_name in user_data.get("groups", []):
