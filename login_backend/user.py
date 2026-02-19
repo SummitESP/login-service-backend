@@ -2,7 +2,7 @@
 from __future__ import unicode_literals
 
 import django
-from typing import Any
+from typing import Any, Optional
 from django.utils import timezone
 from django.contrib.auth.models import User, Group
 
@@ -101,7 +101,7 @@ class SyncingLoginUser(LoginUser):
         )
 
         local_user.groups.set(groups)
-        
+
         # cache the local user
         self._django_user_cache = local_user
 
@@ -115,14 +115,14 @@ class SyncingLoginUser(LoginUser):
                 self._django_user_cache = None
 
     @property
-    def django_user(self) -> User:
+    def django_user(self) -> Optional[User]:
         """Return the synced Django auth.User if available."""
         if self._django_user_cache is None:
             self._load_django_user()
         return self._django_user_cache
 
     @property
-    def id(self) -> int | Any:
+    def id(self) -> Optional[int]:
         """
         Return ONLY the ID of the synced Django user for admin compatibility.
         Never returns the login service user ID.
@@ -138,7 +138,7 @@ class SyncingLoginUser(LoginUser):
         pass
 
     @property
-    def pk(self) -> int | Any:
+    def pk(self) -> Optional[int]:
         """
         Alias for id to ensure Django admin compatibility.
         Never returns the login service user ID.
