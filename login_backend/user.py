@@ -75,6 +75,7 @@ class LoginUser(object):
         return getattr(self, 'first_name', '')
 
 
+
 class SyncingLoginUser(LoginUser):
     def __init__(self, user_data):
         """
@@ -151,3 +152,33 @@ class SyncingLoginUser(LoginUser):
     def pk(self, value: int) -> None:
         """Prevent setting pk - it's read-only from synced Django User."""
         pass
+
+
+class SyncingLoginUserWithId(LoginUser):
+    def __init__(self, user_data):
+        """
+        Creates/updates a corresponding local auth.User object during __init__
+        This class sets the id explicitly based on the id from login service.
+        """
+        # Missing Groups needs to exist before calling super.__init__
+        groups = []
+        for group_name in user_data.get("groups", []):
+            groups.append(Group.objects.get_or_create(name=group_name)[0])
+
+        super(SyncingLoginUser, self).__init__(user_data)
+        local_user, _ = User.objects.update_or_create(
+            id=self.pk,
+            defaults={
+                "username": self.username,
+                "email": self.email,
+                "first_name": self.first_name,
+                "last_name": self.last_name,
+                "is_staff": self.is_staff,
+                "is_active": self.is_active,
+                "is_superuser": self.is_superuser,
+                "last_login": timezone.now(),
+            },
+        )
+
+        local_user.groups.set(groups)
+
