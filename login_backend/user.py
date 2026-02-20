@@ -60,9 +60,6 @@ class LoginUser(object):
     def get_username(self):
         return getattr(self, 'username', '')
 
-    def get_id(self):
-        return getattr(self, 'id', None)
-
     def get_full_name(self):
         """
         Return the first_name plus the last_name, with a space in between.
@@ -75,13 +72,14 @@ class LoginUser(object):
         return getattr(self, 'first_name', '')
 
 
-
 class SyncingLoginUser(LoginUser):
+    
+    _cached_django_user = None
+
     def __init__(self, user_data):
         """
         Creates/updates a corresponding local auth.User object during __init__
         """
-        self._django_user_cache = None
 
         # Missing Groups needs to exist before calling super.__init__
         groups = []
@@ -92,7 +90,6 @@ class SyncingLoginUser(LoginUser):
         local_user, _ = User.objects.update_or_create(
             username=self.username,
             defaults={
-                "username": self.username,
                 "email": self.email,
                 "first_name": self.first_name,
                 "last_name": self.last_name,
@@ -106,23 +103,24 @@ class SyncingLoginUser(LoginUser):
         local_user.groups.set(groups)
 
         # cache the local user
-        self._django_user_cache = local_user
+        self._cached_django_user = local_user
 
     def _load_django_user(self) -> None:
         """Load the synced Django user into cache."""
-        if self._django_user_cache is None and self.username:
+        if self._cached_django_user is None and self.username:
             try:
-                self._django_user_cache = User.objects.get(username=self.username)
+                self._cached_django_user = User.objects.get(username=self.username)
             except User.DoesNotExist:
                 logger.error(f"Django User not found for username: {self.username}")
-                self._django_user_cache = None
+                self._cached_django_user = None
+                raise
 
     @property
     def django_user(self) -> Optional[User]:
         """Return the synced Django auth.User if available."""
-        if self._django_user_cache is None:
+        if self._cached_django_user is None:
             self._load_django_user()
-        return self._django_user_cache
+        return self._cached_django_user
 
     @property
     def id(self) -> Optional[int]:
@@ -165,7 +163,7 @@ class SyncingLoginUserWithId(LoginUser):
         for group_name in user_data.get("groups", []):
             groups.append(Group.objects.get_or_create(name=group_name)[0])
 
-        super(SyncingLoginUser, self).__init__(user_data)
+        super(SyncingLoginUserWithId, self).__init__(user_data)
         local_user, _ = User.objects.update_or_create(
             id=self.pk,
             defaults={
