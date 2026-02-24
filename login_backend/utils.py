@@ -4,6 +4,9 @@ from __future__ import unicode_literals
 from django.contrib.auth.models import AnonymousUser
 from django.conf import settings
 
+import logging
+logger = logging.getLogger("login_backend")
+
 try:
     from django.utils.module_loading import import_string
 except ImportError:
@@ -12,9 +15,12 @@ except ImportError:
 
 
 def get_login_user(user_data):
+    logger.debug(f"Getting login user: {user_data}")
     if user_data:
         UserClass = import_string(getattr(
             settings, 'LOGIN_SERVICE_USER_CLASS', 'login_backend.user.LoginUser'))
         user = UserClass(user_data)
+        logger.debug(f"Created user: {user}")
         return user
+    logger.debug("No user data found, returning AnonymousUser.")
     return AnonymousUser()

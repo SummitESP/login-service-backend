@@ -5,6 +5,9 @@ import requests
 from django.conf import settings
 from django.contrib.sessions.backends.base import CreateError, SessionBase
 
+import logging
+logger = logging.getLogger("login_backend")
+
 try:
     from django.contrib.sessions.backends.base import UpdateError
 except ImportError:
@@ -34,6 +37,7 @@ class SessionStore(SessionBase):
             error = UpdateError
         session_data = self._request(method, endpoint, data=self._get_session(no_load=True))
         if session_data is None:
+            logger.error("Session data is empty.")
             raise error
 
         self._session_key = session_data['_session_key']
@@ -73,13 +77,15 @@ class SessionStore(SessionBase):
         return headers
 
     def _request(self, method, url, data=None, headers=None):
+        logger.debug("Requesting session data")
         headers = self.get_headers(headers)
         resp = method(url, data=data, headers=headers)
         session_data = None
         try:
             resp.raise_for_status()
-        except requests.HTTPError:
-            pass
+        except requests.HTTPError as e:
+            err_message = str(e)
+            logger.error(f"HTTP error occurred: {err_message}")
         else:
             if resp.content:
                 session_data = resp.json()
