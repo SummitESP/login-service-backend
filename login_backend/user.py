@@ -73,30 +73,6 @@ class LoginUser(object):
         return getattr(self, 'first_name', '')
 
 
-class SyncingLoginUser2(LoginUser):
-    def __init__(self, user_data):
-        """
-        Creates a corresponding local auth.User object only if it doesn't exist.
-        Does not create or update groups - use a separate sync process for that.
-        Use a separate sync process to update existing user data and groups.
-        """
-        super(SyncingLoginUser, self).__init__(user_data)
-
-        # Only create if user doesn't exist - no updates on every request
-        if not User.objects.filter(id=self.pk).exists():
-            User.objects.create(
-                id=self.pk,
-                username=self.username,
-                email=self.email,
-                first_name=self.first_name,
-                last_name=self.last_name,
-                is_staff=self.is_staff,
-                is_active=self.is_active,
-                is_superuser=self.is_superuser,
-            )
-        # Note: groups are not set here - will be synced by management command
-
-
 class SyncingLoginUser(LoginUser):
 
     _cached_django_user = None
