@@ -39,11 +39,11 @@ should have the following permissions:
 
 #### Caching
 
-To improve performance and reduce network calls to the Login Service, session and token data is cached by default. You can configure the cache timeout using the following setting:
+To improve performance and reduce network calls to the Login Service, session data can be cached. You can configure the cache timeout using the following setting:
 
-    LOGIN_SERVICE_CACHE_TIMEOUT = 300  # seconds (default: 300)
+    LOGIN_SERVICE_CACHE_TIMEOUT = 10  # seconds (default: 0)
 
-This setting controls how long session and token data is cached before making another request to the Login Service. The default is 300 seconds (5 minutes).
+This setting controls how long session and token data is cached before making another request to the Login Service. The default is 0 seconds, effectively disabling the cache.
 
 The backend uses Django's cache framework, so ensure you have a cache backend configured in your Django settings. For production use, consider using Redis or Memcached instead of the default local-memory cache.
 

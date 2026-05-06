@@ -5,7 +5,11 @@ import requests
 from django.conf import settings
 from django.core.cache import cache
 from django.contrib.sessions.backends.base import CreateError, SessionBase
-from .utils import CACHE_KEY_PREFIX_SESSION, DEFAULT_CACHE_TIMEOUT
+from .utils import (
+    CACHE_KEY_PREFIX_SESSION,
+    DEFAULT_CACHE_TIMEOUT,
+    InvalidSessionCacheTimeoutException
+)
 
 import logging
 logger = logging.getLogger("login_backend")
@@ -23,14 +27,17 @@ class SessionStore(SessionBase):
             cache_key = self.get_cache_key(self.session_key)
             session_data = cache.get(cache_key)
             if session_data is not None:
+                # Cache hit
                 return session_data
 
+        # Cache miss, request session from login-service
         session_data = self._request(requests.get, self.get_endpoint(self.session_key))
         if session_data is not None:
             if self.session_key:
-                timeout = getattr(settings, 'LOGIN_SERVICE_CACHE_TIMEOUT', DEFAULT_CACHE_TIMEOUT)
+                timeout = self.get_login_service_cache_timeout()
                 cache.set(self.get_cache_key(self.session_key), session_data, timeout)
             return session_data
+
         self._session_key = None
         return {}
 
@@ -54,7 +61,7 @@ class SessionStore(SessionBase):
         self._session_key = session_data['_session_key']
         self._session_cache.update(session_data)
 
-        timeout = getattr(settings, 'LOGIN_SERVICE_CACHE_TIMEOUT', DEFAULT_CACHE_TIMEOUT)
+        timeout = self.get_login_service_cache_timeout()
         cache.set(self.get_cache_key(self._session_key), session_data, timeout)
 
     def exists(self, session_key):
@@ -64,7 +71,7 @@ class SessionStore(SessionBase):
 
         session_data = self._request(requests.get, self.get_endpoint(session_key))
         if session_data:
-            timeout = getattr(settings, 'LOGIN_SERVICE_CACHE_TIMEOUT', DEFAULT_CACHE_TIMEOUT)
+            timeout = self.get_login_service_cache_timeout()
             cache.set(cache_key, session_data, timeout)
             return True
         return False
@@ -81,6 +88,11 @@ class SessionStore(SessionBase):
     @classmethod
     def clear_expired(cls):
         pass
+
+    def get_login_service_cache_timeout(self):
+        timeout = getattr(settings, 'LOGIN_SERVICE_CACHE_TIMEOUT', DEFAULT_CACHE_TIMEOUT)
+        if timeout is None:
+            raise InvalidSessionCacheTimeoutException()
 
     def get_cache_key(self, session_key):
         return '{}:{}'.format(CACHE_KEY_PREFIX_SESSION, session_key)

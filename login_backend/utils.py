@@ -15,8 +15,14 @@ except ImportError:
 
 # Cache configuration
 CACHE_KEY_PREFIX_SESSION = 'login_service_session'
-CACHE_KEY_PREFIX_TOKEN = 'login_service_token'
-DEFAULT_CACHE_TIMEOUT = 300
+# `0` is the secure default. Effectively disables caching. THIS VALUE CAN NEVER BE None.
+# If the value is None then the cache doesn't expire and this whole session backend plugin breaks.
+DEFAULT_CACHE_TIMEOUT = 0
+
+
+class InvalidSessionCacheTimeoutException(Exception):
+    """Raised with the cache timeout value is None"""
+    pass
 
 
 def get_login_user(user_data):
