@@ -2,9 +2,12 @@
 from __future__ import unicode_literals
 
 import django
+from typing import Any, Optional
 from django.utils import timezone
 from django.contrib.auth.models import User, Group
 
+import logging
+logger = logging.getLogger("login_backend")
 
 class LoginUser(object):
     def __init__(self, user_data):
@@ -13,6 +16,7 @@ class LoginUser(object):
             setattr(self, key, value)
 
     def get_group_permissions(self, obj=None):
+        logger.debug(f"Getting group permissions: {obj}")
         if not hasattr(self, '_group_permissions'):
             self._group_permissions = set(
                 '{}.{}'.format(app, codename)
@@ -68,7 +72,8 @@ class LoginUser(object):
         return getattr(self, 'first_name', '')
 
 
-class SyncingLoginUser(LoginUser):
+
+class SyncingLoginUser2(LoginUser):
     def __init__(self, user_data):
         """
         Creates a corresponding local auth.User object only if it doesn't exist.
@@ -90,3 +95,115 @@ class SyncingLoginUser(LoginUser):
                 is_superuser=self.is_superuser,
             )
         # Note: groups are not set here - will be synced by management command
+
+
+class SyncingLoginUser(LoginUser):
+    
+    _cached_django_user = None
+
+    def __init__(self, user_data):
+        """
+        Creates a corresponding local auth.User object only if it doesn't exist.
+        Does not create or update groups - use a separate sync process for that.
+        Use a separate sync process to update existing user data and groups.
+        """
+
+        # Missing Groups needs to exist before calling super.__init__
+        groups = []
+        for group_name in user_data.get("groups", []):
+            groups.append(Group.objects.get_or_create(name=group_name)[0])
+
+        super(SyncingLoginUser, self).__init__(user_data)
+        local_user, _ = User.objects.update_or_create(
+            username=self.username,
+            defaults={
+                "email": self.email,
+                "first_name": self.first_name,
+                "last_name": self.last_name,
+                "is_staff": self.is_staff,
+                "is_active": self.is_active,
+                "is_superuser": self.is_superuser,
+                "last_login": timezone.now(),
+            },
+        )
+
+        local_user.groups.set(groups)
+
+        # cache the local user
+        self._cached_django_user = local_user
+
+    def _load_django_user(self) -> None:
+        """Load the synced Django user into cache."""
+        if self._cached_django_user is None and self.username:
+            try:
+                self._cached_django_user = User.objects.get(username=self.username)
+            except User.DoesNotExist:
+                logger.error(f"Django User not found for username: {self.username}")
+                self._cached_django_user = None
+                raise
+
+    @property
+    def django_user(self) -> Optional[User]:
+        """Return the synced Django auth.User if available."""
+        if self._cached_django_user is None:
+            self._load_django_user()
+        return self._cached_django_user
+
+    @property
+    def id(self) -> Optional[int]:
+        """
+        Return ONLY the ID of the synced Django user for admin compatibility.
+        Never returns the login service user ID.
+        """
+        django_user = self.django_user
+        if django_user:
+            return django_user.id
+        return None
+
+    @id.setter
+    def id(self, value: int) -> None:
+        """Prevent setting id - it's read-only from synced Django User."""
+        pass
+
+    @property
+    def pk(self) -> Optional[int]:
+        """
+        Alias for id to ensure Django admin compatibility.
+        Never returns the login service user ID.
+        """
+        return self.id
+
+    @pk.setter
+    def pk(self, value: int) -> None:
+        """Prevent setting pk - it's read-only from synced Django User."""
+        pass
+
+
+class SyncingLoginUserWithId(LoginUser):
+    def __init__(self, user_data):
+        """
+        Creates/updates a corresponding local auth.User object during __init__
+        This class sets the id explicitly based on the id from login service.
+        """
+        # Missing Groups needs to exist before calling super.__init__
+        groups = []
+        for group_name in user_data.get("groups", []):
+            groups.append(Group.objects.get_or_create(name=group_name)[0])
+
+        super(SyncingLoginUserWithId, self).__init__(user_data)
+        local_user, _ = User.objects.update_or_create(
+                id=self.pk,
+            defaults={
+                username=self.username,
+                email=self.email,
+                first_name=self.first_name,
+                last_name=self.last_name,
+                is_staff=self.is_staff,
+                is_active=self.is_active,
+                is_superuser=self.is_superuser,
+                "last_login": timezone.now(),
+            )
+        )
+
+        # Note: groups are not set here - will be synced by management command
+
