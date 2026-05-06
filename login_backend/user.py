@@ -9,6 +9,7 @@ from django.contrib.auth.models import User, Group
 import logging
 logger = logging.getLogger("login_backend")
 
+
 class LoginUser(object):
     def __init__(self, user_data):
         self.groups = Group.objects.filter(name__in=user_data.pop('groups', []))
@@ -72,7 +73,6 @@ class LoginUser(object):
         return getattr(self, 'first_name', '')
 
 
-
 class SyncingLoginUser2(LoginUser):
     def __init__(self, user_data):
         """
@@ -98,14 +98,12 @@ class SyncingLoginUser2(LoginUser):
 
 
 class SyncingLoginUser(LoginUser):
-    
+
     _cached_django_user = None
 
     def __init__(self, user_data):
         """
-        Creates a corresponding local auth.User object only if it doesn't exist.
-        Does not create or update groups - use a separate sync process for that.
-        Use a separate sync process to update existing user data and groups.
+        Creates/updates a corresponding local auth.User object during __init__
         """
 
         # Missing Groups needs to exist before calling super.__init__
@@ -192,18 +190,17 @@ class SyncingLoginUserWithId(LoginUser):
 
         super(SyncingLoginUserWithId, self).__init__(user_data)
         local_user, _ = User.objects.update_or_create(
-                id=self.pk,
+            id=self.pk,
             defaults={
-                username=self.username,
-                email=self.email,
-                first_name=self.first_name,
-                last_name=self.last_name,
-                is_staff=self.is_staff,
-                is_active=self.is_active,
-                is_superuser=self.is_superuser,
+                "username": self.username,
+                "email": self.email,
+                "first_name": self.first_name,
+                "last_name": self.last_name,
+                "is_staff": self.is_staff,
+                "is_active": self.is_active,
+                "is_superuser": self.is_superuser,
                 "last_login": timezone.now(),
-            )
+            },
         )
 
-        # Note: groups are not set here - will be synced by management command
-
+        local_user.groups.set(groups)
