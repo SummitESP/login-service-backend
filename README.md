@@ -37,6 +37,16 @@ should have the following permissions:
 * view, add, change and delete access for sessions.session
 * view access for authtoken.token
 
+#### Caching
+
+To improve performance and reduce network calls to the Login Service, session data can be cached. You can configure the cache timeout using the following setting:
+
+    LOGIN_SERVICE_CACHE_TIMEOUT = 10  # seconds (default: 0)
+
+This setting controls how long session and token data is cached before making another request to the Login Service. The default is 0 seconds, effectively disabling the cache.
+
+The backend uses Django's cache framework, so ensure you have a cache backend configured in your Django settings. For production use, consider using Redis or Memcached instead of the default local-memory cache.
+
 #### Django Rest Framework
 
 The login service can also handle Token authentication for Django Rest Framework. Be sure to add
@@ -62,3 +72,19 @@ in the settings.
             person, created = Person.objects.get_or_create(identified=user_data['identifier'])
             person.sync_attrs(user_data)  # update first_name, last_name, email, etc.
             return person
+
+#### SyncingLoginUser
+
+The `login_backend.user.SyncingLoginUser` class provides an alternative user class that automatically syncs user data and groups to local Django `auth.User` and `auth.Group` models.
+
+    LOGIN_SERVICE_USER_CLASS = 'login_backend.user.SyncingLoginUser'
+
+When using `SyncingLoginUser`:
+
+* User records are created or updated on every authenticated request
+* Groups are automatically created if they don't exist
+* User group memberships are synced on every request
+* User attributes (username, email, first_name, last_name, is_staff, is_active, is_superuser) are kept in sync with the Login Service
+* The `last_login` timestamp is updated on every request
+
+This is useful when you need local Django user records for foreign key relationships or when integrating with Django apps that expect standard Django users. Note that this approach makes additional database queries on each request, so consider the performance implications for high-traffic applications.

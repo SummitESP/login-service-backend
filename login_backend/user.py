@@ -9,6 +9,7 @@ from django.contrib.auth.models import User, Group
 import logging
 logger = logging.getLogger("login_backend")
 
+
 class LoginUser(object):
     def __init__(self, user_data):
         self.groups = Group.objects.filter(name__in=user_data.pop('groups', []))
@@ -73,7 +74,7 @@ class LoginUser(object):
 
 
 class SyncingLoginUser(LoginUser):
-    
+
     _cached_django_user = None
 
     def __init__(self, user_data):
@@ -179,4 +180,3 @@ class SyncingLoginUserWithId(LoginUser):
         )
 
         local_user.groups.set(groups)
-

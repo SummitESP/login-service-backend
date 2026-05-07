@@ -3,7 +3,12 @@ from __future__ import unicode_literals
 
 import requests
 from django.conf import settings
+from django.core.cache import cache
 from django.contrib.sessions.backends.base import CreateError, SessionBase
+from .utils import (
+    CACHE_KEY_PREFIX_SESSION,
+    get_login_service_cache_timeout
+)
 
 import logging
 logger = logging.getLogger("login_backend")
@@ -17,9 +22,21 @@ except ImportError:
 
 class SessionStore(SessionBase):
     def load(self):
+        if self.session_key:
+            cache_key = self.get_cache_key(self.session_key)
+            session_data = cache.get(cache_key)
+            if session_data is not None:
+                # Cache hit
+                return session_data
+
+        # Cache miss, request session from login-service
         session_data = self._request(requests.get, self.get_endpoint(self.session_key))
         if session_data is not None:
+            if self.session_key:
+                timeout = get_login_service_cache_timeout()
+                cache.set(self.get_cache_key(self.session_key), session_data, timeout)
             return session_data
+
         self._session_key = None
         return {}
 
@@ -43,8 +60,18 @@ class SessionStore(SessionBase):
         self._session_key = session_data['_session_key']
         self._session_cache.update(session_data)
 
+        timeout = get_login_service_cache_timeout()
+        cache.set(self.get_cache_key(self._session_key), session_data, timeout)
+
     def exists(self, session_key):
-        if self._request(requests.get, self.get_endpoint(session_key)):
+        cache_key = self.get_cache_key(session_key)
+        if cache.get(cache_key) is not None:
+            return True
+
+        session_data = self._request(requests.get, self.get_endpoint(session_key))
+        if session_data:
+            timeout = get_login_service_cache_timeout()
+            cache.set(cache_key, session_data, timeout)
             return True
         return False
 
@@ -55,9 +82,14 @@ class SessionStore(SessionBase):
             session_key = self.session_key
         self._request(requests.delete, self.get_endpoint(session_key))
 
+        cache.delete(self.get_cache_key(session_key))
+
     @classmethod
     def clear_expired(cls):
         pass
+
+    def get_cache_key(self, session_key):
+        return '{}:{}'.format(CACHE_KEY_PREFIX_SESSION, session_key)
 
     def get_endpoint(self, session_key=None):
         if session_key:
