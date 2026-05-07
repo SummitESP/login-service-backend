@@ -29,7 +29,7 @@ class InvalidSessionCacheTimeoutException(Exception):
     pass
 
 
-def get_login_service_cache_timeout(self):
+def get_login_service_cache_timeout():
     timeout = getattr(settings, 'LOGIN_SERVICE_CACHE_TIMEOUT', DEFAULT_CACHE_TIMEOUT)
     if timeout is None or timeout > MAX_CACHE_TIMEOUT:
         raise InvalidSessionCacheTimeoutException(
