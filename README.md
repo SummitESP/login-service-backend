@@ -47,6 +47,18 @@ This setting controls how long session and token data is cached before making an
 
 The backend uses Django's cache framework, so ensure you have a cache backend configured in your Django settings. For production use, consider using Redis or Memcached instead of the default local-memory cache.
 
+#### Syncing user classes
+
+The `SyncingLoginUser` and `SyncingLoginUserWithId` classes create/update a local `auth.User`
+on every request. Groups are resolved with a single query, and the user row is only written
+when a synced field actually changed. The `last_login` timestamp is refreshed at most every
+`LOGIN_SERVICE_LAST_LOGIN_INTERVAL` seconds so idle traffic does not generate constant user-row
+writes and locks:
+
+    LOGIN_SERVICE_LAST_LOGIN_INTERVAL = 300  # seconds (default: 300)
+
+Set it to `0` to restore updating `last_login` on every request.
+
 #### Django Rest Framework
 
 The login service can also handle Token authentication for Django Rest Framework. Be sure to add

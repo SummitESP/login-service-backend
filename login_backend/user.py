@@ -2,12 +2,84 @@
 from __future__ import unicode_literals
 
 import django
-from typing import Any, Optional
-from django.utils import timezone
+from typing import List, Optional
+from django.conf import settings
 from django.contrib.auth.models import User, Group
+from django.utils import timezone
 
 import logging
 logger = logging.getLogger("login_backend")
+
+# How often (in seconds) a synced user's last_login is refreshed. Syncing user
+# classes run on every request, and an unconditional last_login write forced a
+# user-row UPDATE (and row lock) per request. Set to 0 to update on every
+# request.
+DEFAULT_LAST_LOGIN_INTERVAL = 300
+
+
+def _resolve_groups(group_names) -> "List[Group]":
+    """
+    Return Group objects for the given names using a single query.
+
+    Missing groups are created individually, but only when they don't already
+    exist; the previous per-name ``get_or_create`` loop issued one query per
+    group on every request (the N+1 flagged by Sentry).
+    """
+    group_names = list(group_names)
+    if not group_names:
+        return []
+    groups = {group.name: group for group in Group.objects.filter(name__in=group_names)}
+    for name in group_names:
+        if name not in groups:
+            groups[name] = Group.objects.get_or_create(name=name)[0]
+    return [groups[name] for name in group_names]
+
+
+def _sync_local_user(lookup: dict, defaults: dict, groups: "List[Group]") -> User:
+    """
+    Create or update the local ``auth.User`` while avoiding writes when
+    nothing changed.
+
+    ``update_or_create`` runs SELECT FOR UPDATE plus an UPDATE inside a
+    transaction on every request, which locks the user row and produces
+    constant write traffic. Instead, read the user, save only changed fields,
+    and refresh ``last_login`` at most every LOGIN_SERVICE_LAST_LOGIN_INTERVAL
+    seconds.
+    """
+    try:
+        local_user = User.objects.get(**lookup)
+    except User.DoesNotExist:
+        # Rare path; update_or_create keeps creation race-safe.
+        local_user, _ = User.objects.update_or_create(
+            defaults=dict(defaults, last_login=timezone.now()), **lookup
+        )
+        local_user.groups.set(groups)
+        return local_user
+
+    changed_fields = [
+        field for field, value in defaults.items() if getattr(local_user, field) != value
+    ]
+    for field in changed_fields:
+        setattr(local_user, field, defaults[field])
+
+    last_login_interval = getattr(
+        settings, "LOGIN_SERVICE_LAST_LOGIN_INTERVAL", DEFAULT_LAST_LOGIN_INTERVAL
+    )
+    now = timezone.now()
+    if (
+        local_user.last_login is None
+        or (now - local_user.last_login).total_seconds() >= last_login_interval
+    ):
+        local_user.last_login = now
+        changed_fields.append("last_login")
+
+    if changed_fields:
+        local_user.save(update_fields=changed_fields)
+
+    # ``groups.set`` reads the existing m2m rows and only writes the
+    # difference, so it is a single SELECT when the groups are unchanged.
+    local_user.groups.set(groups)
+    return local_user
 
 
 class LoginUser(object):
@@ -83,13 +155,11 @@ class SyncingLoginUser(LoginUser):
         """
 
         # Missing Groups needs to exist before calling super.__init__
-        groups = []
-        for group_name in user_data.get("groups", []):
-            groups.append(Group.objects.get_or_create(name=group_name)[0])
+        groups = _resolve_groups(user_data.get("groups", []))
 
         super(SyncingLoginUser, self).__init__(user_data)
-        local_user, _ = User.objects.update_or_create(
-            username=self.username,
+        local_user = _sync_local_user(
+            lookup={"username": self.username},
             defaults={
                 "email": self.email,
                 "first_name": self.first_name,
@@ -97,11 +167,9 @@ class SyncingLoginUser(LoginUser):
                 "is_staff": self.is_staff,
                 "is_active": self.is_active,
                 "is_superuser": self.is_superuser,
-                "last_login": timezone.now(),
             },
+            groups=groups,
         )
-
-        local_user.groups.set(groups)
 
         # cache the local user
         self._cached_django_user = local_user
@@ -160,13 +228,11 @@ class SyncingLoginUserWithId(LoginUser):
         This class sets the id explicitly based on the id from login service.
         """
         # Missing Groups needs to exist before calling super.__init__
-        groups = []
-        for group_name in user_data.get("groups", []):
-            groups.append(Group.objects.get_or_create(name=group_name)[0])
+        groups = _resolve_groups(user_data.get("groups", []))
 
         super(SyncingLoginUserWithId, self).__init__(user_data)
-        local_user, _ = User.objects.update_or_create(
-            id=self.pk,
+        _sync_local_user(
+            lookup={"id": self.pk},
             defaults={
                 "username": self.username,
                 "email": self.email,
@@ -175,8 +241,6 @@ class SyncingLoginUserWithId(LoginUser):
                 "is_staff": self.is_staff,
                 "is_active": self.is_active,
                 "is_superuser": self.is_superuser,
-                "last_login": timezone.now(),
             },
+            groups=groups,
         )
-
-        local_user.groups.set(groups)
