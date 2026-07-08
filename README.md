@@ -9,6 +9,32 @@ Usage
 
 pip install -e git+https://github.com/SummitESP/login-service-backend
 
+Packaging and Release Notes
+===========================
+
+This package uses a modern PEP 517 build configuration (`pyproject.toml`) with
+setuptools.
+
+Compatibility
+-------------
+
+* Python: 3.10+
+* Django: >=3.2,<6
+
+Local package validation
+------------------------
+
+Run this sequence before tagging a release:
+
+    python -m pip install -U build twine
+    python -m build
+    python -m twine check dist/*
+
+    python -m venv .venv-test
+    . .venv-test/bin/activate
+    python -m pip install dist/*.whl
+    python -c "import login_backend; print(login_backend.__version__)"
+
 ### Django Settings
 
     SESSION_ENGINE = 'login_backend.sessions'
