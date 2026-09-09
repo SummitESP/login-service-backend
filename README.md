@@ -7,7 +7,40 @@ This session and authentication backend is intended specifically for use with th
 Usage
 =====
 
-pip install -e git+https://github.com/SummitESP/login-service-backend
+```sh
+python -m pip install "login-service-backend @ git+https://github.com/SummitESP/login-service-backend.git@<commit-or-tag>"
+```
+
+Requires Python 3.10+ and Django 3.2+. Django and `requests` are installed as
+runtime dependencies. For the Django REST Framework integration, install the
+`drf` extra (`login-service-backend[drf] @ git+https://...`).
+
+### Building and validating a release
+
+Packaging uses PEP 517/621 and an isolated setuptools build backend. No Django
+settings, application imports, system `distutils`, or preinstalled setuptools
+are required to build the package. Keep pip build isolation enabled.
+
+```sh
+python -m venv .venv
+.venv/bin/python -m pip install --upgrade pip build
+.venv/bin/python script/check_packaging.py
+```
+
+The check builds an sdist and then a wheel from that sdist, installs each in a
+separate environment seeded with pip 25.2 and setuptools 57.5.0 (the legacy
+deployment toolchain), checks dependency consistency, and exercises the installed
+session, middleware, and DRF modules outside the source tree. On Python 3.14 this
+also verifies that the build does not depend on the host's broken legacy
+setuptools/distutils installation. CI runs this against Python/Django
+3.10/3.2, 3.12/4.2, and 3.14/5.2.
+
+For a release, update `login_backend.__version__`, pass the packaging checks,
+merge, and tag that commit as `v<version>`. Consumers can pin the reviewed commit
+SHA before the release tag is available. Version 1.3.3 corrects the stale 1.3.1
+package metadata in the existing v1.3.2 tag and modernizes packaging; it retains
+the runtime code from v1.3.2, including its session-cache behavior (disabled by
+default). SK deployments must also upgrade their pip bootstrap to match CI.
 
 ### Django Settings
 
