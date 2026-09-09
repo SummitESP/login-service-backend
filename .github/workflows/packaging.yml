@@ -1,0 +1,42 @@
+---
+name: Packaging and compatibility
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  packaging:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python: '3.10'
+            django: 'Django>=3.2,<3.3'
+            drf: 'djangorestframework>=3.14,<3.15'
+          - python: '3.12'
+            django: 'Django>=4.2,<4.3'
+            drf: 'djangorestframework>=3.15,<3.16'
+          - python: '3.14'
+            django: 'Django>=5.2,<5.3'
+            drf: 'djangorestframework>=3.16,<3.19'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install build frontend
+        run: python -m pip install build
+      - name: Build and test installed wheel and sdist
+        env:
+          DJANGO_REQUIREMENT: ${{ matrix.django }}
+          DRF_REQUIREMENT: ${{ matrix.drf }}
+        run: >-
+          python script/check_packaging.py
+          --django "$DJANGO_REQUIREMENT" --drf "$DRF_REQUIREMENT"

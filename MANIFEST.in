@@ -1,0 +1,2 @@
+include script/check_packaging.py
+include tests/test_installed_backend.py

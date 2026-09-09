@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=80.9,<85"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "login-service-backend"
+dynamic = ["version"]
+description = "Django authentication backend for Summit tools unified Login Service."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Jeremy Satterfield", email = "jsatterfield@summitesp.com" }]
+dependencies = ["Django>=3.2", "requests>=2.25"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: Django",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Systems Administration :: Authentication/Directory",
+]
+
+[project.optional-dependencies]
+drf = ["djangorestframework>=3.12"]
+
+[project.urls]
+Repository = "https://github.com/SummitESP/login-service-backend"
+
+[tool.setuptools.dynamic]
+version = { attr = "login_backend.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["login_backend", "login_backend.*"]
+namespaces = false
+
+[tool.ruff]
+line-length = 99
+target-version = "py310"
