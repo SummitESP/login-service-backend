@@ -15,6 +15,7 @@ except ImportError:
 
 # Cache configuration
 CACHE_KEY_PREFIX_SESSION = 'login_service_session'
+CACHE_KEY_PREFIX_DUPLICATE_SESSION = 'login_service_duplicate_session'
 # `0` is the secure default. Effectively disables caching. THIS VALUE CAN NEVER BE None.
 # If the value is None then the cache doesn't expire and this whole session backend plugin breaks.
 DEFAULT_CACHE_TIMEOUT = 0
@@ -22,6 +23,12 @@ DEFAULT_CACHE_TIMEOUT = 0
 # login-service while maintain only a 10 seconds lag if permissions change for a user on the
 # identity provider or login-service itself.
 MAX_CACHE_TIMEOUT = 10
+# How long DuplicateSessionCookieMiddleware remembers whether a candidate session key exists.
+# The cached answer only decides which cookie value is loaded; the session engine still
+# validates the chosen session, so this never extends a session past the login-service.
+DEFAULT_DUPLICATE_SESSION_CACHE_TIMEOUT = 10
+# Upper bound on distinct duplicate session cookie values checked per request.
+MAX_DUPLICATE_SESSION_COOKIE_CANDIDATES = 3
 
 
 class InvalidSessionCacheTimeoutException(Exception):
@@ -34,6 +41,19 @@ def get_login_service_cache_timeout():
     if timeout is None or timeout > MAX_CACHE_TIMEOUT:
         raise InvalidSessionCacheTimeoutException(
             f"Cache timeout cannot be greater than {MAX_CACHE_TIMEOUT} or None"
+        )
+    return timeout
+
+
+def get_duplicate_session_cache_timeout():
+    timeout = getattr(
+        settings,
+        'LOGIN_SERVICE_DUPLICATE_SESSION_CACHE_TIMEOUT',
+        DEFAULT_DUPLICATE_SESSION_CACHE_TIMEOUT,
+    )
+    if timeout is None or timeout < 0:
+        raise InvalidSessionCacheTimeoutException(
+            "Duplicate session cache timeout must be a non-negative number of seconds"
         )
     return timeout
 

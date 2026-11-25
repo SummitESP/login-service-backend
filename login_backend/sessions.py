@@ -115,9 +115,13 @@ class SessionStore(SessionBase):
         session_data = None
         try:
             resp.raise_for_status()
-        except requests.HTTPError as e:
-            err_message = str(e)
-            logger.error(f"HTTP error occurred: {err_message}")
+        except requests.HTTPError:
+            # The error text includes the URL, which contains the session key.
+            status_code = getattr(resp, 'status_code', None)
+            if status_code == 404:
+                logger.warning("Login service session not found")
+            else:
+                logger.error(f"HTTP error occurred: {status_code} from login service")
         else:
             if resp.content:
                 session_data = resp.json()

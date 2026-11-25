@@ -42,6 +42,10 @@ package metadata in the existing v1.3.2 tag and modernizes packaging; it retains
 the runtime code from v1.3.2, including its session-cache behavior (disabled by
 default). SK deployments must also upgrade their pip bootstrap to match CI.
 
+Version 1.3.4 adds the opt-in `DuplicateSessionCookieMiddleware` (see
+[Duplicate session cookies](#duplicate-session-cookies)) and stops logging session
+keys when the Login Service rejects a session request.
+
 ### Django Settings
 
     SESSION_ENGINE = 'login_backend.sessions'
@@ -79,6 +83,45 @@ To improve performance and reduce network calls to the Login Service, session da
 This setting controls how long session and token data is cached before making another request to the Login Service. The default is 0 seconds, effectively disabling the cache.
 
 The backend uses Django's cache framework, so ensure you have a cache backend configured in your Django settings. For production use, consider using Redis or Memcached instead of the default local-memory cache.
+
+#### Duplicate session cookies
+
+A browser sends every cookie whose domain matches the host. If one environment sets
+`sessionid` for `.example.com` and another sets it for `.test.example.com`, hosts under
+`.test.example.com` receive both. Django keeps only the last one, which can be the other
+environment's session, so the user appears logged out.
+
+`login_backend.middleware.DuplicateSessionCookieMiddleware` handles this. When the
+`Cookie` header has more than one distinct `SESSION_COOKIE_NAME` value, it checks each
+value with the configured session engine's `SessionStore().exists()` (one Login Service
+request per value with `login_backend.sessions`) and uses the first one that exists. If
+none exists, Django's choice is kept. Requests with a single session cookie are not
+changed and make no lookups. It works with any session engine.
+
+Add it immediately before Django's `SessionMiddleware`:
+
+    MIDDLEWARE = [
+        ...
+        'login_backend.middleware.DuplicateSessionCookieMiddleware',
+        'django.contrib.sessions.middleware.SessionMiddleware',
+        ...
+    ]
+
+or, when MIDDLEWARE is built in code:
+
+    MIDDLEWARE.insert(
+        MIDDLEWARE.index('django.contrib.sessions.middleware.SessionMiddleware'),
+        'login_backend.middleware.DuplicateSessionCookieMiddleware',
+    )
+
+At most 3 distinct values are checked per request. The middleware logs a warning with
+the cookie count and the chosen index, never the values. Lookup results are cached in
+Django's default cache under hashed keys:
+
+    LOGIN_SERVICE_DUPLICATE_SESSION_CACHE_TIMEOUT = 10  # seconds (default: 10, 0 disables)
+
+The cache only decides which cookie value is used. The session engine still loads and
+validates the chosen session on every request, subject to `LOGIN_SERVICE_CACHE_TIMEOUT`.
 
 #### Django Rest Framework
 
